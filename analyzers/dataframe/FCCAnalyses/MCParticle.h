@@ -67,6 +67,12 @@ namespace MCParticle{
     bool  operator() (ROOT::VecOps::RVec<edm4hep::MCParticleData> in, ROOT::VecOps::RVec<int> ind);
   };
 
+  /// get the decay of a Higgs particle
+  struct get_Higgs_decay {
+    get_Higgs_decay();
+    int operator() (ROOT::VecOps::RVec<edm4hep::MCParticleData> in, ROOT::VecOps::RVec<int> ind);
+  };
+
   /// return the event primary vertex  (mm)
   struct get_EventPrimaryVertex {
     get_EventPrimaryVertex( int arg_genstatus  );

@@ -144,6 +144,120 @@ ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> resonanceBuilder::operato
 }
 
 
+
+ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> findZleptons(const ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>& legs) {
+
+  int Zdau1(-1), Zdau2(-1);
+  float Zmass(1e9);
+  int n = legs.size();
+  //ROOT::VecOps::RVec<bool> result(n);
+  //std::fill(result.begin(), result.end(), false);
+  ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> result;
+
+  if (n>1) {
+    ROOT::VecOps::RVec<bool> v(n);
+    std::fill(v.end() - 2, v.end(), true);
+    do {
+      edm4hep::ReconstructedParticleData reso;
+      TLorentzVector reso_lv;
+      float m1(-999.), m2(-999.);
+      int i1(-1), i2(-1);
+      for (int i = 0; i < n; ++i) {
+        if (v[i]) {
+          reso.charge += legs[i].charge;
+          TLorentzVector leg_lv;
+          leg_lv.SetXYZM(legs[i].momentum.x, legs[i].momentum.y, legs[i].momentum.z, legs[i].mass);
+          reso_lv += leg_lv;
+	  if (m1<0) {
+	    m1 = legs[i].mass;
+	    i1 = i;
+	  }
+	  else {
+	    m2 = legs[i].mass;
+	    i2 = i;
+	  }
+        }
+      }
+      // CONSIDER ONLY OPPOSITE CHARGE SAME FLAVOUR COMBINATIONS
+      // debug
+      //std::cout << i1 << " " << i2 << std:: endl;
+      //std::cout << reso.charge << std:: endl;
+      //std::cout << m1-m2 << std:: endl;
+      if (reso.charge==0 && std::abs(m1-m2)<1e-5) {
+	reso.momentum.x = reso_lv.Px();
+	reso.momentum.y = reso_lv.Py();
+	reso.momentum.z = reso_lv.Pz();
+        reso.mass = reso_lv.M();
+	// debug
+	//std::cout << reso.mass << std::endl;
+	if (abs(reso.mass - 91.2)<abs(Zmass - 91.2)) {
+	  Zmass = reso.mass;
+	  Zdau1 = i1;
+	  Zdau2 = i2;
+	}
+      }
+    } while (std::next_permutation(v.begin(), v.end()));
+  }
+  if (Zdau1>-1 and Zdau2>-1) {
+    // debug
+    // std::cout << "Selected pair: " << Zdau1 << " " << Zdau2 << ", mass: " << Zmass << std::endl;
+    //result[Zdau1] = true;
+    //result[Zdau2] = true;
+    result.push_back(legs[Zdau1]);
+    result.push_back(legs[Zdau2]);
+  }
+  return result;
+}
+
+
+jetResonanceBuilder::jetResonanceBuilder(float arg_resonance_mass, int strategy) {m_resonance_mass = arg_resonance_mass; m_strategy = strategy;}
+ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> jetResonanceBuilder::operator()(const ROOT::VecOps::RVec<fastjet::PseudoJet> & legs) {
+
+  ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> result;
+  int n = legs.size();
+  if (n >1) {
+    ROOT::VecOps::RVec<bool> v(n);
+    //std::fill(v.end() - 2, v.end(), true);
+    std::fill(v.begin(), v.end(), false);
+    std::fill(v.begin(), v.begin()+2, true);
+    int nperm=0;
+    do {
+      // check if we only want to build resonance from first 2 legs
+      if (nperm>0 && m_strategy==2) continue;
+
+      edm4hep::ReconstructedParticleData reso;
+      // without the following line the charge will assume random values
+      reso.charge = 0;
+      TLorentzVector reso_lv;
+      for (int i = 0; i < n; ++i) {
+	if (v[i]) {
+	  TLorentzVector leg_lv;
+	  leg_lv.SetXYZM(legs[i].px(), legs[i].py(), legs[i].pz(), legs[i].m());
+	  reso_lv += leg_lv;
+	}
+      }
+      reso.momentum.x = reso_lv.Px();
+      reso.momentum.y = reso_lv.Py();
+      reso.momentum.z = reso_lv.Pz();
+      reso.energy = reso_lv.E();
+      reso.mass = reso_lv.M();
+      result.emplace_back(reso);
+      nperm++;
+    } while (std::prev_permutation(v.begin(), v.end()));
+  }
+  if (result.size() > 1 && m_strategy==1) {
+    auto resonancesort = [&] (edm4hep::ReconstructedParticleData i ,edm4hep::ReconstructedParticleData j) { return (abs( m_resonance_mass -i.mass)<abs(m_resonance_mass-j.mass)); };
+    std::sort(result.begin(), result.end(), resonancesort);
+    ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>::const_iterator first = result.begin();
+    ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>::const_iterator last = result.begin() + 1;
+    ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> onlyBestReso(first, last);
+    return onlyBestReso;
+  } else {
+    return result;
+  }
+}
+
+
 recoilBuilder::recoilBuilder(float arg_sqrts) : m_sqrts(arg_sqrts) {};
 ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>  recoilBuilder::operator() (ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> in) {
   ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> result;

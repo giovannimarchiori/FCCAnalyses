@@ -59,6 +59,244 @@ bool get_decay::operator() (ROOT::VecOps::RVec<edm4hep::MCParticleData> in,  ROO
   return result;
 }
 
+
+get_Higgs_decay::get_Higgs_decay(){};
+int get_Higgs_decay::operator() (ROOT::VecOps::RVec<edm4hep::MCParticleData> in,  ROOT::VecOps::RVec<int> ind){
+
+  int result=-1;
+  for (size_t i = 0; i < in.size(); ++i) {
+    if (in[i].PDG!=25) continue;
+    std::vector<int> daughters = get_list_of_particles_from_decay(i,in,ind);
+    unsigned int ndaughters=daughters.size();
+    // for Pythia8: if ndaughters==1, it's not the final Higgs, continue
+    if (ndaughters==1) {
+      continue;
+    }
+    if (ndaughters!=2) {
+      std::cout << "Unknown Higgs decay: n(daughters) = " << ndaughters << std::endl;
+      return result;
+    }
+    // hadronic decays: 0-9
+    if      (std::abs(in[daughters[0]].PDG)==5 and std::abs(in[daughters[1]].PDG)==5) result=0; // Hbb
+    else if (std::abs(in[daughters[0]].PDG)==4 and std::abs(in[daughters[1]].PDG)==4) result=1; // Hcc
+    else if (std::abs(in[daughters[0]].PDG)==3 and std::abs(in[daughters[1]].PDG)==3) result=2; // Hss
+    else if (std::abs(in[daughters[0]].PDG)==2 and std::abs(in[daughters[1]].PDG)==2) result=3; // Huu
+    else if (std::abs(in[daughters[0]].PDG)==1 and std::abs(in[daughters[1]].PDG)==1) result=4; // Hdd
+    else if (in[daughters[0]].PDG==21 and in[daughters[1]].PDG==21) result=5; // Hgg
+    // leptonic decays: 10-19
+    else if (std::abs(in[daughters[0]].PDG)==15 and std::abs(in[daughters[1]].PDG)==15) {
+      // Htautau
+      std::vector<int> daughters_tau1 = get_list_of_stable_particles_from_decay(daughters[0],in,ind);
+      std::vector<int> daughters_tau2 = get_list_of_stable_particles_from_decay(daughters[1],in,ind);
+      // ignore photons
+      unsigned int ndau1=daughters_tau1.size();
+      unsigned int ndau2=daughters_tau2.size();
+      int tau1=-1;
+      int tau2=-1;
+      for (unsigned int j=0; j<daughters_tau1.size(); j++) {
+	if (in[daughters_tau1[j]].PDG == 22) ndau1--;
+	if (std::abs(in[daughters_tau1[j]].PDG)==11) tau1 = 1; // tau->enu
+	else if (std::abs(in[daughters_tau1[j]].PDG)==13) tau1 = 2; // tau->munu
+      }
+      if (ndau1!=3 || tau1==-1) tau1=3; // tau->had
+      for (unsigned int j=0; j<daughters_tau2.size(); j++) {
+	if (in[daughters_tau2[j]].PDG == 22) ndau2--;
+	if (std::abs(in[daughters_tau2[j]].PDG)==11) tau2 = 1; // tau->enu
+	else if (std::abs(in[daughters_tau2[j]].PDG)==13) tau2 = 2; // tau->munu
+      }
+      if (ndau2!=3 || tau2==-1) tau2=3; // tau->had
+
+      if (tau1==3 && tau2==3) result = 10; // Htautau, tautau->hh
+      else if ( (tau1==2 && tau2==3) || (tau1==3 && tau2==2) ) result = 11; // Htautau, tautau->h+mu
+      else if ( (tau1==1 && tau2==3) || (tau1==3 && tau2==1) ) result = 12; // Htautau, tautau->h+e
+      else if ( (tau1==2 && tau2==2) ) result = 13; // Htautau, tautau->mumu
+      else if ( (tau1==1 && tau2==2) || (tau1==2 && tau2==1) ) result = 14; // Htautau, tautau->e+mu
+      else if ( (tau1==1 && tau2==1) ) result = 15; // Htautau, tautau->ee
+    }
+    else if (std::abs(in[daughters[0]].PDG)==13 and std::abs(in[daughters[1]].PDG)==13) result=16; // Hmm
+    else if (std::abs(in[daughters[0]].PDG)==11 and std::abs(in[daughters[1]].PDG)==11) result=17; // Hee
+    // yy, Zy: 
+    else if (in[daughters[0]].PDG==22 and in[daughters[1]].PDG==22) result=20; // Hyy
+    else if (in[daughters[0]].PDG==22 and in[daughters[1]].PDG==23) result=21; // HZy
+    else if (in[daughters[0]].PDG==23 and in[daughters[1]].PDG==22) result=21; // HZy
+    else if (in[daughters[0]].PDG==23 and in[daughters[1]].PDG==23) { //ZZ
+      std::vector<int> daughters_Z1 = get_list_of_particles_from_decay(daughters[0],in,ind);
+      std::vector<int> daughters_Z2 = get_list_of_particles_from_decay(daughters[1],in,ind);
+      unsigned int ndau1=daughters_Z1.size();
+      unsigned int ndau2=daughters_Z2.size();
+      if (ndau1!=2) {
+        std::cout << "Unknown Z decay: n(daughters) = " << ndau1 << std::endl;
+        result=30;
+      }
+      else if (ndau2!=2) {
+        std::cout << "Unknown Z decay: n(daughters) = " << ndau2 << std::endl;
+        result=30;
+      }
+      else {
+        int Z1=-1;
+        int Z2=-1;
+        if (std::abs(in[daughters_Z1[0]].PDG)==5 and std::abs(in[daughters_Z1[1]].PDG)==5) Z1 = 0; //Zbb
+	else if (std::abs(in[daughters_Z1[0]].PDG)==4 and std::abs(in[daughters_Z1[1]].PDG)==4) Z1 = 1; //Zcc
+	else if (std::abs(in[daughters_Z1[0]].PDG)==3 and std::abs(in[daughters_Z1[1]].PDG)==3) Z1 = 2; //Zss
+	else if (std::abs(in[daughters_Z1[0]].PDG)==2 and std::abs(in[daughters_Z1[1]].PDG)==2) Z1 = 3; //Zuu
+	else if (std::abs(in[daughters_Z1[0]].PDG)==1 and std::abs(in[daughters_Z1[1]].PDG)==1) Z1 = 4; //Zdd
+	else if (std::abs(in[daughters_Z1[0]].PDG)==15 and std::abs(in[daughters_Z1[1]].PDG)==15) Z1 = 5; //Ztautau
+	else if (std::abs(in[daughters_Z1[0]].PDG)==13 and std::abs(in[daughters_Z1[1]].PDG)==13) Z1 = 6; //Zmm
+	else if (std::abs(in[daughters_Z1[0]].PDG)==11 and std::abs(in[daughters_Z1[1]].PDG)==11) Z1 = 7; //Zee
+	else if (std::abs(in[daughters_Z1[0]].PDG)==12 and std::abs(in[daughters_Z1[1]].PDG)==12) Z1 = 8; //Znn
+	else if (std::abs(in[daughters_Z1[0]].PDG)==14 and std::abs(in[daughters_Z1[1]].PDG)==14) Z1 = 8; //Znn
+	else if (std::abs(in[daughters_Z1[0]].PDG)==16 and std::abs(in[daughters_Z1[1]].PDG)==16) Z1 = 8; //Znn
+
+        if (std::abs(in[daughters_Z2[0]].PDG)==5 and std::abs(in[daughters_Z2[1]].PDG)==5) Z2 = 0; //Zbb
+	else if (std::abs(in[daughters_Z2[0]].PDG)==4 and std::abs(in[daughters_Z2[1]].PDG)==4) Z2 = 1; //Zcc
+	else if (std::abs(in[daughters_Z2[0]].PDG)==3 and std::abs(in[daughters_Z2[1]].PDG)==3) Z2 = 2; //Zss
+	else if (std::abs(in[daughters_Z2[0]].PDG)==2 and std::abs(in[daughters_Z2[1]].PDG)==2) Z2 = 3; //Zuu
+	else if (std::abs(in[daughters_Z2[0]].PDG)==1 and std::abs(in[daughters_Z2[1]].PDG)==1) Z2 = 4; //Zdd
+	else if (std::abs(in[daughters_Z2[0]].PDG)==15 and std::abs(in[daughters_Z2[1]].PDG)==15) Z2 = 5; //Ztautau
+	else if (std::abs(in[daughters_Z2[0]].PDG)==13 and std::abs(in[daughters_Z2[1]].PDG)==13) Z2 = 6; //Zmm
+	else if (std::abs(in[daughters_Z2[0]].PDG)==11 and std::abs(in[daughters_Z2[1]].PDG)==11) Z2 = 7; //Zee
+	else if (std::abs(in[daughters_Z2[0]].PDG)==12 and std::abs(in[daughters_Z2[1]].PDG)==12) Z2 = 8; //Znn
+	else if (std::abs(in[daughters_Z2[0]].PDG)==14 and std::abs(in[daughters_Z2[1]].PDG)==14) Z2 = 8; //Znn
+	else if (std::abs(in[daughters_Z2[0]].PDG)==16 and std::abs(in[daughters_Z2[1]].PDG)==16) Z2 = 8; //Znn
+
+        if (Z1<0) {
+          std::cout << "Unknown Z decay: daughters = ";
+          for (unsigned int j=0; j<ndau1; j++) std::cout << in[daughters_Z1[j]].PDG << " " ;
+          std::cout << std::endl;
+	  result=30;
+        }
+        else if (Z2<0) {
+          std::cout << "Unknown Z decay: daughters = ";
+	  for (unsigned int j=0; j<ndau2; j++) std::cout << in[daughters_Z2[j]].PDG << " " ;
+	  std::cout << std::endl;
+	  result=30;
+        }
+        else if (Z1==6 or Z1==7) {
+          if (Z2==6 or Z2==7) result=31; //HZZ(llll)
+          else if (Z2<5) result=32; //HZZ(llqq)
+          else if (Z2==5) result=33; //HZZ(lltautau)
+          else if (Z2==8) result=34; //HZZ(llnn)
+        }
+        else if (Z1==5) {
+          if (Z2==6 or Z2==7) result=33; //HZZ(lltautau)
+          else if (Z2==5) result=35; //HZZ(tautautautau)
+          else if (Z2<5) result=36; //HZZ(tautauqq)
+          else if (Z2==8) result=37; //HZZ(tautaunn)
+        }
+        else if (Z1==8) {
+          if (Z2==6 or Z2==7) result=34; //HZZ(llnn)
+          else if (Z2==5) result=37; //HZZ(tautaunn)
+          else if (Z2==8) result=38; //HZZ(nnnn)
+          else if (Z2<5) result=39; //HZZ(nnqq)
+        }
+        else if (Z1<5) {
+          if (Z2==6 or Z2==7) result=32; //HZZ(llqq)
+          else if (Z2==5) result=36; //HZZ(tautauqq)
+          else if (Z2==8) result=39; //HZZ(nnqq)
+          else if (Z2<5) result=40; //HZZ(qqqq)
+        }
+	else 
+          result=30;
+      }
+    }
+    else if (std::abs(in[daughters[0]].PDG)==24 and std::abs(in[daughters[1]].PDG)==24) { // HWW
+
+      std::vector<int> daughters_W1 = get_list_of_particles_from_decay(daughters[0],in,ind);
+      std::vector<int> daughters_W2 = get_list_of_particles_from_decay(daughters[1],in,ind);
+      unsigned int ndau1=daughters_W1.size();
+      unsigned int ndau2=daughters_W2.size();
+      if (ndau1!=2) {
+        std::cout << "Unknown W decay: n(daughters) = " << ndau1 << std::endl;
+        result=30;
+      }
+      else if (ndau2!=2) {
+        std::cout << "Unknown W decay: n(daughters) = " << ndau2 << std::endl;
+        result=30;
+      }
+      else {
+	int W1=-1;
+	int W2=-1;
+
+	if      (std::abs(in[daughters_W1[0]].PDG)<6 and std::abs(in[daughters_W1[1]].PDG)<6) W1 = 1; //Wqq
+	else if (std::abs(in[daughters_W1[0]].PDG)==11 and std::abs(in[daughters_W1[1]].PDG)==12) W1 = 2; //Wen
+	else if (std::abs(in[daughters_W1[0]].PDG)==13 and std::abs(in[daughters_W1[1]].PDG)==14) W1 = 3; //Wmn
+	else if (std::abs(in[daughters_W1[0]].PDG)==15 and std::abs(in[daughters_W1[1]].PDG)==16) W1 = 4; //Wtn
+	
+	if      (std::abs(in[daughters_W2[0]].PDG)<6 and std::abs(in[daughters_W2[1]].PDG)<6) W2 = 1; //Wqq
+	else if (std::abs(in[daughters_W2[0]].PDG)==11 and std::abs(in[daughters_W2[1]].PDG)==12) W2 = 2; //Wen
+	else if (std::abs(in[daughters_W2[0]].PDG)==13 and std::abs(in[daughters_W2[1]].PDG)==14) W2 = 3; //Wmn
+	else if (std::abs(in[daughters_W2[0]].PDG)==15 and std::abs(in[daughters_W2[1]].PDG)==16) W2 = 4; //Wtn
+
+	if (W1<0)
+	{
+	  std::cout << "Unknown W decay: daughters = ";
+	  for (unsigned int j=0; j<ndau1; j++) std::cout << in[daughters_W1[j]].PDG << " " ;
+	  std::cout << std::endl;
+	  //result=50;
+	}
+	else if (W2<0) 
+	{
+	  std::cout << "Unknown W decay: daughters = ";
+	  for (unsigned int j=0; j<ndau2; j++) std::cout << in[daughters_W2[j]].PDG << " " ;
+	  std::cout << std::endl;
+	  //result=50;
+	}
+	else if (W1==1) {
+	  if (W2==1) result=51; //WW(4q)
+	  else if (W2==2) result=52; //WW(evqq)
+	  else if (W2==3) result=53; //WW(mvqq)
+	  else if (W2==4) result=54; //WW(tvqq)
+	}
+	else if (W1==2) {
+	  if (W2==1) result=52; //WW(evqq)
+	  else if (W2==2) result=55; //WW(evev)
+	  else if (W2==3) result=56; //WW(evmv)
+	  else if (W2==4) result=57; //WW(evtv)
+	}
+	else if (W1==3) {
+	  if (W2==1) result=53; //WW(mvqq)
+	  else if (W2==2) result=56; //WW(evmv)
+	  else if (W2==3) result=58; //WW(mvmv)
+	  else if (W2==4) result=59; //WW(mvtv)
+	}
+	else if (W1==4) {
+	  if (W2==1) result=54; //WW(tvqq)
+	  else if (W2==2) result=57; //WW(evtv)
+	  else if (W2==3) result=59; //WW(mvtv)
+	  else if (W2==4) result=60; //WW(tvtv)
+	}
+	else 
+	  result=50; // HWW
+      }
+    }
+    else {
+      std::cout << "Unknown Higgs decay: daughters = " << in[daughters[0]].PDG << " " << in[daughters[1]].PDG << std::endl;
+      result=100;
+    }
+    // some debug printout for Htautau
+    /*
+    if (result>9 && result<16) {
+      std::vector<int> daughters_tau1 = get_list_of_stable_particles_from_decay(daughters[0],in,ind);
+      std::vector<int> daughters_tau2 = get_list_of_stable_particles_from_decay(daughters[1],in,ind);
+      unsigned int ndau1=daughters_tau1.size();
+      unsigned int ndau2=daughters_tau2.size();
+      for (unsigned int j=0; j<ndau1; j++) std::cout << in[daughters_tau1[j]].PDG << " " ;
+      std::cout << std::endl;
+      for (unsigned int j=0; j<ndau2; j++) std::cout << in[daughters_tau2[j]].PDG << " " ;
+      std::cout << std::endl;
+    }
+    */
+    if (result>0) break;
+  }
+  // do not print out this message otherwise it will pollute
+  // log file for non Higgs samples
+  // if (result<0) std::cout << "No Higgs found" << std::endl;
+  // std::cout << "Higgs decay: " << result << std::endl;
+
+  return result;
+}
+
+
 sel_pt::sel_pt(float arg_min_pt) : m_min_pt(arg_min_pt) {};
 ROOT::VecOps::RVec<edm4hep::MCParticleData>  sel_pt::operator() (ROOT::VecOps::RVec<edm4hep::MCParticleData> in) {
   ROOT::VecOps::RVec<edm4hep::MCParticleData> result;

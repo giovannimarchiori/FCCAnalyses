@@ -88,6 +88,17 @@ namespace FCCAnalyses {
     /** Get jet theta. Details. */
     ROOT::VecOps::RVec<float> get_theta(const ROOT::VecOps::RVec<fastjet::PseudoJet>& in);
 
+    /// return the size of the input collection
+    int get_n(const ROOT::VecOps::RVec<fastjet::PseudoJet>& in);
+
+    ///Select clustered jets with momentum in a certain range [GeV]
+    struct sel_p {
+      sel_p(float arg_min_p, float arg_max_p = 1e10);
+      float m_min_p = 1.; //> momentum threshold [GeV]
+      float m_max_p = 1e10; //< momentum threshold [GeV]
+      ROOT::VecOps::RVec<fastjet::PseudoJet>  operator() (const ROOT::VecOps::RVec<fastjet::PseudoJet>& in);
+    };
+
     ///Select clustered jets with transverse momentum greader than a minimum value [GeV]
     struct sel_pt {
       sel_pt(float arg_min_pt);
@@ -117,7 +128,7 @@ namespace FCCAnalyses {
       ROOT::VecOps::RVec<fastjet::PseudoJet> operator()(ROOT::VecOps::RVec<fastjet::PseudoJet> legs);
     };
 
-		struct recoilBuilder {
+    struct recoilBuilder {
       recoilBuilder(float arg_sqrts);
       float m_sqrts = 240.0;
       double operator() (ROOT::VecOps::RVec<fastjet::PseudoJet> in);

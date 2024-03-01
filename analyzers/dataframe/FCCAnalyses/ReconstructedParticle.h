@@ -9,6 +9,7 @@
 #include "ROOT/RVec.hxx"
 #include "edm4hep/ReconstructedParticleData.h"
 #include "edm4hep/ParticleIDData.h"
+#include "fastjet/PseudoJet.hh"
 
 namespace FCCAnalyses{
 
@@ -19,6 +20,18 @@ namespace ReconstructedParticle{
     float m_resonance_mass;
     resonanceBuilder(float arg_resonance_mass);
     ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> operator()(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> legs);
+  };
+
+  /// find Z->ll candidate
+  ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> findZleptons(const ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>& legs);
+
+  /// build the resonance from 2 jets from an arbitrary list of input PseudoJets.
+  /// Keep the closest to the mass given as input (strategy=1) or use the first 2 jets (strategy=2) or return all combinations (strategy=3)
+  struct jetResonanceBuilder {
+    float m_resonance_mass;
+    int m_strategy;
+    jetResonanceBuilder(float arg_resonance_mass, int strategy=1);
+    ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> operator()(const ROOT::VecOps::RVec<fastjet::PseudoJet>& legs);
   };
 
   /// build the recoil from an arbitrary list of input ReconstructedPartilces and the center of mass energy
