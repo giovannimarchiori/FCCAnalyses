@@ -180,6 +180,7 @@ def run(rdf_module, args):
     int_lumi = get_element(rdf_module, "intLumi", True)
 
     do_tree = get_element(rdf_module, "doTree", True)
+    branch_list = get_element(rdf_module, "branchList", True)
     for process_name in process_list:
         LOGGER.info('Running over process: %s', process_name)
 
@@ -262,7 +263,20 @@ def run(rdf_module, args):
                 opts = ROOT.RDF.RSnapshotOptions()
                 opts.fLazy = True
                 try:
-                    snapshot_tdf = df_cut.Snapshot("events", fout, "", opts)
+                    # do tree with all variables or only m_recoil
+                    if (branch_list):
+                        branchList = ROOT.vector('string')()
+                        # fix to flatten vectors
+                        tmpSet = set()
+                        for b in branch_list:
+                            tmpSet.add(branch_list[b]["name"])
+                        # print(tmpSet)
+                        for v in tmpSet:
+                            branchList.push_back(v)
+                        # print(branchList)
+                        snapshot_tdf = df_cut.Snapshot("events", fout, branchList, opts)
+                    else:
+                        snapshot_tdf = df_cut.Snapshot("events", fout, "", opts)
                 except Exception as excp:
                     LOGGER.error('During the execution of the final stage '
                                  'exception occurred:\n%s', excp)
@@ -350,26 +364,27 @@ def run(rdf_module, args):
 
         LOGGER.info(info_msg)
 
-        # And save everything
+        # And save everything (hists scaled to 1/pb)
         LOGGER.info('Saving the outputs...')
         for i, cut in enumerate(cut_list):
             # output file for histograms
-            fhisto = output_dir + process_name + '_' + cut + '_histo.root'
-            with ROOT.TFile(fhisto, 'RECREATE'):
-                for h in histos_list[i]:
-                    try:
-                        h.Scale(
-                            1. * process_dict[process_name]["crossSection"] *
-                            process_dict[process_name]["kfactor"] *
-                            process_dict[process_name]["matchingEfficiency"] /
-                            process_events[process_name])
-                    except KeyError:
-                        LOGGER.warning(
-                            'No value defined for process %s in dictionary!',
-                            process_name)
-                        if h.Integral(0, -1) > 0:
-                            h.Scale(1./h.Integral(0, -1))
-                    h.Write()
+            if len(histos_list[i]) > 0:
+                fhisto = output_dir + process_name + '_' + cut + '_histo.root'
+                with ROOT.TFile(fhisto, 'RECREATE'):
+                    for h in histos_list[i]:
+                        try:
+                            h.Scale(
+                                1. * process_dict[process_name]["crossSection"] *
+                                process_dict[process_name]["kfactor"] *
+                                process_dict[process_name]["matchingEfficiency"] /
+                                process_events[process_name])
+                        except KeyError:
+                            LOGGER.warning(
+                                'No value defined for process %s in dictionary!',
+                                process_name)
+                            if h.Integral(0, -1) > 0:
+                                h.Scale(1./h.Integral(0, -1))
+                        h.Write()
 
             if do_tree:
                 # test that the snapshot worked well
@@ -380,6 +395,26 @@ def run(rdf_module, args):
         if save_tabular and cut != 'selNone':
             save_tab.append(cuts_list)
             efficiency_list.append(eff_list)
+
+
+        if save_tabular:
+            f = open("{:s}/{:s}_cutflow_weighted.txt".format(output_dir,process_name),"w")
+            lumiWeight = process_dict[process_name]["crossSection"] * \
+                process_dict[process_name]["kfactor"] * \
+                process_dict[process_name]["matchingEfficiency"] * \
+                int_lumi / process_events[process_name]
+            nevents = all_events
+            if not do_scale: neevents *= lumiWeight
+            f.write ('       {cutname:{width}} : {nevents:10f}  (100.0)\n'.format(cutname='All events',
+                                                                                  width=16+length_cuts_names,
+                                                                                  nevents=nevents))
+            for i, cut in enumerate(cut_list):
+                # if cut!='selNone':
+                f.write ('       After selection {cutname:{width}} : {nevents:10f}  ({efficiency:.1f})\n'.format(cutname=cut,
+                                                                                                                 width=length_cuts_names,
+                                                                                                                 nevents=count_list[i].GetValue()*lumiWeight,
+                                                                                                                 efficiency=count_list[i].GetValue()*100*lumiWeight/nevents))
+            f.close()
 
     if save_tabular:
         tabular_path = output_dir + 'outputTabular.txt'
