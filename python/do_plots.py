@@ -254,7 +254,7 @@ def runPlots(var, sel, param, hsignal, hbackgrounds, extralab, splitLeg,
         colors.append(param.colors[b])
 
     intLumiab = param.intLumi/1e+06
-    intLumi = f'L = {intLumiab:.0f} ab^{{-1}}'
+    intLumi = f'L = {intLumiab:.1f} ab^{{-1}}'
     if hasattr(param, "intLumiLabel"):
         intLumi = getattr(param, "intLumiLabel")
 
@@ -279,10 +279,13 @@ def runPlots(var, sel, param, hsignal, hbackgrounds, extralab, splitLeg,
         param.scaleSig = scaleSig
 
     if 'AAAyields' in var:
-        drawStack(var, 'events', leg, lt, rt, param.formats,
+        drawStack(var, 'events',
+                  #leg, lt, rt, param.formats,
+                  None, lt, rt, param.formats, # dont want the legend
                   param.outdir+"/"+sel, False, True, histos, colors,
                   param.ana_tex, extralab, scaleSig, customLabel, nsig,
-                  nbkg, leg2, yields, plotStatUnc)
+                  #nbkg, leg2, yields, plotStatUnc) # dont want the legend
+                  nbkg, None, yields, plotStatUnc)
         return
 
     if 'stack' in param.stacksig:
@@ -599,7 +602,8 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
     h_dummy.SetMaximum(ymax)
     h_dummy.SetMinimum(ymin)
 
-    legend.Draw()
+    if legend is not None:
+        legend.Draw()
     if legend2 is not None:
         legend2.Draw()
 
@@ -608,15 +612,18 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
     latex.SetTextAlign(31)
     latex.SetTextSize(0.04)
 
+    # fccanalyses label
     text = '#it{' + leftText + '}'
     latex.DrawLatex(0.90, 0.94, text)
 
+    # custom label
     text = '#it{'+customLabel+'}'
     latex.SetTextAlign(12)
     latex.SetNDC(ROOT.kTRUE)
     latex.SetTextSize(0.04)
     latex.DrawLatex(0.18, 0.85, text)
 
+    # center of mass energy
     rightText = re.split(",", rightText)
     text = '#bf{#it{' + rightText[0] + '}}'
 
@@ -625,15 +632,18 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
     latex.SetTextSize(0.04)
     latex.DrawLatex(0.18, 0.81, text)
 
+    # luminosity label
     rightText[1] = rightText[1].replace("   ", "")
     text = '#bf{#it{' + rightText[1] + '}}'
     latex.SetTextSize(0.035)
     latex.DrawLatex(0.18, 0.76, text)
 
+    # analysis label
     text = '#bf{#it{' + ana_tex + '}}'
     latex.SetTextSize(0.04)
     latex.DrawLatex(0.18, 0.71, text)
 
+    # extra label (selection)
     text = '#bf{#it{' + extralab + '}}'
     latex.SetTextSize(0.025)
     latex.DrawLatex(0.18, 0.66, text)
@@ -656,7 +666,8 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
         dummyh.GetYaxis().SetLabelOffset(999)
         dummyh.GetYaxis().SetLabelSize(0)
         dummyh.Draw("AH")
-        legend.Draw()
+        if legend:
+            legend.Draw()
 
         latex.SetNDC()
         latex.SetTextAlign(31)
@@ -685,37 +696,39 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
 
         text = '#bf{#it{' + 'Signal scale=' + str(scaleSig) + '}}'
         latex.SetTextSize(0.04)
-        latex.DrawLatex(0.18, 0.55, text)
+        #latex.DrawLatex(0.18, 0.55, text)
+        latex.DrawLatex(0.58, 0.85, text)
 
         dy = 0
+        extrady = 0.18
         text = '#bf{#it{' + 'Process' + '}}'
         latex.SetTextSize(0.035)
-        latex.DrawLatex(0.18, 0.45, text)
+        latex.DrawLatex(0.18, 0.45+extrady, text)
 
         text = '#bf{#it{' + 'Yields' + '}}'
         latex.SetTextSize(0.035)
-        latex.DrawLatex(0.5, 0.45, text)
+        latex.DrawLatex(0.5, 0.45+extrady, text)
 
         text = '#bf{#it{' + 'Raw MC' + '}}'
         latex.SetTextSize(0.035)
-        latex.DrawLatex(0.75, 0.45, text)
+        latex.DrawLatex(0.75, 0.45+extrady, text)
 
         for y in yields:
             text = '#bf{#it{' + yields[y][0] + '}}'
             latex.SetTextSize(0.035)
-            latex.DrawLatex(0.18, 0.4-dy*0.05, text)
+            latex.DrawLatex(0.18, 0.4+extrady-dy*0.05, text)
 
             stry = str(yields[y][1])
             stry = stry.split('.', maxsplit=1)[0]
             text = '#bf{#it{' + stry + '}}'
             latex.SetTextSize(0.035)
-            latex.DrawLatex(0.5, 0.4-dy*0.05, text)
+            latex.DrawLatex(0.5, 0.4+extrady-dy*0.05, text)
 
             stry = str(yields[y][2])
             stry = stry.split('.', maxsplit=1)[0]
             text = '#bf{#it{' + stry + '}}'
             latex.SetTextSize(0.035)
-            latex.DrawLatex(0.75, 0.4-dy*0.05, text)
+            latex.DrawLatex(0.75, 0.4+extrady-dy*0.05, text)
 
             dy += 1
         # canvas.Modified()
