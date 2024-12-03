@@ -576,7 +576,9 @@ def drawStack(name, ylabel, legend, leftText, rightText, formats, directory,
         for h in hists[1:]:
             hist_tot.Add(h)
         vals = []
-        for i in range(0, hist_tot.GetNbinsX()+1):
+        #for i in range(0, hist_tot.GetNbinsX()+1):
+        # do not consider under/overflow since they are not plotted
+        for i in range(1, hist_tot.GetNbinsX()):
             if hist_tot.GetBinLowEdge(i) > xmin or \
                     hist_tot.GetBinLowEdge(i+1) < xmax:
                 if hist_tot.GetBinContent(i) != 0:
